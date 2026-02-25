@@ -1,0 +1,11 @@
+{
+    "id": "ndpr",
+    "version": "1.0.0",
+    "name": "NDPReforged-MCDR-Client",
+    "description": "NDPReforged的MCDR客户端",
+    "author": "EXE_autumnwind NDPR Team",
+    "link": "https://github.com/NDPReforged/NDPR-MCDR",
+    "dependencies": {
+        "mcdreforged": ">=2.0.0"
+    }
+}

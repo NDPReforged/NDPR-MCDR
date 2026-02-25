@@ -1,0 +1,14 @@
+{
+  "ndpr_plugin.help": "NDPR Ban System",
+  "ndpr_plugin.reloaded": "NDPR plugin reloaded",
+  "ndpr_plugin.config.created": "Default config file created",
+  "ndpr_plugin.uuid.obtained": "UUID obtained successfully",
+  "ndpr_plugin.db.downloaded": "Ban database downloaded successfully",
+  "ndpr_plugin.db.count": "Current ban records",
+  "ndpr_plugin.ban.added": "Player banned successfully",
+  "ndpr_plugin.ban.failed": "Ban failed",
+  "ndpr_plugin.ban.not_found": "Player is not banned",
+  "ndpr_plugin.ban.found": "Player is banned",
+  "ndpr_plugin.permission.denied": "Permission denied",
+  "ndpr_plugin.token.required": "Token not configured"
+}

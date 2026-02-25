@@ -1,0 +1,14 @@
+{
+  "ndpr_plugin.help": "NDPR封禁系统",
+  "ndpr_plugin.reloaded": "NDPR插件已重载",
+  "ndpr_plugin.config.created": "已创建默认配置文件",
+  "ndpr_plugin.uuid.obtained": "成功获取UUID",
+  "ndpr_plugin.db.downloaded": "成功下载封禁数据库",
+  "ndpr_plugin.db.count": "当前封禁记录数",
+  "ndpr_plugin.ban.added": "成功封禁玩家",
+  "ndpr_plugin.ban.failed": "封禁失败",
+  "ndpr_plugin.ban.not_found": "玩家未被封禁",
+  "ndpr_plugin.ban.found": "玩家已被封禁",
+  "ndpr_plugin.permission.denied": "权限不足",
+  "ndpr_plugin.token.required": "Token未配置"
+}
