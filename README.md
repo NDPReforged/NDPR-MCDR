@@ -5,7 +5,6 @@
 ![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)
 ![Python](https://img.shields.io/badge/python-3.9+-green.svg)
 ![MCDR](https://img.shields.io/badge/MCDR-2.x+-orange.svg)
-![License](https://img.shields.io/badge/license-MIT-red.svg)
 
 **NDPR 封禁系统 MCDR 插件**
 
@@ -17,7 +16,7 @@
 
 ## 📖 简介
 
-NDPR (NotDPR) 是一个强大的 Minecraft 服务器玩家封禁系统插件，通过云端封禁数据库实现跨服联防。支持正版服和离线服，可精准封禁玩家 ID、UUID、IP 地址和 IPv6 地址。
+NDPR (NDPReforged) 是一个强大的 Minecraft 服务器玩家封禁系统插件，通过云端封禁数据库实现跨服联防。支持正版服和离线服，可精准封禁玩家 ID、UUID、IP 地址和 IPv6 地址。
 
 ### 主要功能
 
@@ -236,12 +235,6 @@ logger_format = "<[%n%]%name%>%s%<%message%>"
 
 ---
 
-##  许可证
-
-本项目采用 MIT 许可证 - 详见 [LICENSE](LICENSE) 文件
-
----
-
 ##  联系方式
 
 - **官网**：https://ndpreforged.com
@@ -250,20 +243,15 @@ logger_format = "<[%n%]%name%>%s%<%message%>"
 
 ---
 
-##  致谢
+##  版权声明
 
-感谢所有为 NDPR 项目做出贡献的开发者和用户！
-
-- MCDR 团队提供的优秀插件框架
-- 所有测试用户的反馈和建议
-- 社区成员的积极贡献
+**版权所有 © 2026 NDPR.**
+**保留所有权利，禁止未经授权使用、修改、分发。**
 
 ---
 
 <div align="center">
-
-**Made with ❤️ by NDPReforged Team**
-
+  
 [返回顶部](#ndpr-mcdr-plugin)
 
 </div>
