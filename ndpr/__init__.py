@@ -12,20 +12,24 @@ config = None
 config_path = None
 data_dir = None
 ban_db_path = None
+player_info_path = None
 download_task = None
-version = 1.0
+version = "1.1"
 
 
 def on_load(server: PluginServerInterface, prev_module):
     try:
-        global config, config_path, data_dir, ban_db_path
+        global config, config_path, data_dir, ban_db_path, player_info_path
         config_path = os.path.join(server.get_data_folder(), 'config.toml')
-        init_config(server)
-        setup_logger(server)
+
         config_dir = os.path.dirname(config_path)
         data_dir = os.path.join(config_dir, 'data')
         ban_db_path = os.path.join(data_dir, 'ban_database.db')
+        player_info_path = os.path.join(data_dir, 'player_info.json')
         os.makedirs(data_dir, exist_ok=True)
+
+        init_config(server)
+        setup_logger(server)
         server.logger.info(f'UUID: {config.get("uuid", "未设置")}')
         if not config.get('uuid'):
             server.logger.info('正在获取UUID...')
@@ -39,8 +43,7 @@ def on_load(server: PluginServerInterface, prev_module):
         check_plugin_update(server)
         server.logger.info('NDPR插件已加载')
     except Exception as e:
-        # 配置错误已经在 init_config 中处理，不需要额外处理
-        # 让异常正常抛出，MCDR 会显示 Traceback 但插件会保持禁用状态
+
         raise
 
 
@@ -170,52 +173,42 @@ def validate_config(server: PluginServerInterface):
 
     api_url = config.get('api_url')
     if not api_url or not isinstance(api_url, str):
-        errors.append('api_url 格式错误')
+        errors.append('配置文件错误:字段api_url')
     elif not api_url.startswith('http://') and not api_url.startswith('https://'):
-        errors.append('api_url请求头格式错误')
+        errors.append('配置文件错误:api_url请求头')
     token = config.get('token')
     if token is None:
-        errors.append('token 格式错误')
+        errors.append('配置文件错误:字段token')
     elif not isinstance(token, str):
-        errors.append('token 格式错')
+        errors.append('配置文件错误:字段token')
 
-    # 验证 uuid（可以为空，但不能是 None）
     uuid = config.get('uuid')
     if uuid is None:
-        errors.append('uuid 格式错误')
+        errors.append('配置文件错误:字段uuid')
     elif not isinstance(uuid, str):
-        errors.append('uuid 格式错误')
-    elif uuid and len(uuid) != 36:
-        errors.append('uuid 格式错误')
+        errors.append('配置文件错误:字段uuid')
 
-    # 验证 onlinemode（必须是布尔值）
     onlinemode = config.get('onlinemode')
     if not isinstance(onlinemode, bool):
-        errors.append('onlinemode 必须是true 或 false')
+        errors.append('配置文件错误:字段onlinemode')
 
-    # 验证 log_path
     log_path = config.get('log_path')
     if not log_path or not isinstance(log_path, str):
-        errors.append('log_path 格式错误')
+        errors.append('配置文件错误:字段log_path')
 
-    # 验证 logger_mode
     logger_mode = config.get('logger_mode')
     if logger_mode not in ['default', 'custom']:
-        errors.append('logger_mode 必须是 "default" 或 "custom"')
+        errors.append('配置文件错误:字段logger_mode')
 
-    # 验证 logger_format
     logger_format = config.get('logger_format')
     if not logger_format or not isinstance(logger_format, str):
-        errors.append('logger_format 格式错误')
+        errors.append('配置文件错误:字段logger_format')
 
-    # 验证 download_interval（必须是正整数）
     download_interval = config.get('download_interval')
     if not isinstance(download_interval, int) or download_interval <= 0:
-        errors.append('download_interval 格式错误')
+        errors.append('配置文件错误:字段download_interval')
 
-    # 如果有错误，输出并抛出异常
     if errors:
-        server.logger.error('配置文件参数格式错误:')
         for error in errors:
             server.logger.error(f'  - {error}')
         server.logger.error('请检查 config.toml 配置文件')
@@ -377,6 +370,15 @@ def download_ban_database(server: PluginServerInterface, src=None):
 
         count = cursor.fetchone()[0]
         conn.close()
+
+        table_name = 'online' if is_online else 'offline'
+        success_msg = f'§a封禁数据库下载成功！'
+        server.logger.info(f'数据库已更新，共 {count} 条记录')
+
+        if src:
+            src.reply(success_msg)
+            src.reply(detail_msg)
+
         try:
             done_response = requests.post(
                 f"{config['api_url']}/bans/download/done",
@@ -389,7 +391,10 @@ def download_ban_database(server: PluginServerInterface, src=None):
             server.logger.warning(f'API相应错误 HTTP{done_response.status_code} {e}')
 
     except Exception as e:
-        server.logger.error(f'数据库更新失败{e}')
+        error_msg = f'数据库更新失败: {e}'
+        server.logger.error(error_msg)
+        if src:
+            src.reply(f'§c{error_msg}')
 
 
 def register_commands(server: PluginServerInterface):
@@ -434,7 +439,7 @@ def register_commands(server: PluginServerInterface):
 
 def help_callback(src, ctx):
     src.reply('§6========== §bNDPR 封禁系统 §6==========')
-    src.reply(f'§e版本:{version}.0')
+    src.reply(f'§e版本:v{version}')
     src.reply(f'§e作者:EXE_autumnwind NDPReforged Team')
     src.reply('官方交流Q群:232760327')
     src.reply('')
@@ -452,6 +457,7 @@ def reload_callback(src, ctx):
     reload_plugin(src, src.get_server())
 
 def download_callback(src, ctx):
+    src.reply('§e正在下载封禁数据库...')
     download_ban_database(src.get_server(), src)
 
 
@@ -518,7 +524,10 @@ def check_update_callback(src, ctx):
 def reload_plugin(src, server: PluginServerInterface):
     global config
     try:
+        src.reply('§e正在重载 NDPR 插件...')
+        src.reply('§7正在重新加载配置文件...')
         init_config(server)
+        src.reply('§7正在下载封禁数据库...')
         download_ban_database(server, src)
         src.reply('§aNDPR插件已重载')
     except Exception as e:
@@ -533,9 +542,18 @@ def add_ban_player(src, player: str):
         src.reply('§cToken未配置')
         return
 
-    player_ip = get_player_ip(player)
-    player_uuid = get_player_uuid(player)
-    player_ipv6 = get_player_ipv6(player)
+    src.reply(f'§e正在获取玩家 {player} 的信息...')
+
+    player_info = load_player_info(player)
+
+    if not player_info:
+        src.reply('§c未找到该玩家的信息')
+        src.reply('§7请确保该玩家最近登录过服务器')
+        return
+
+    player_ip = player_info.get('ip')
+    player_uuid = player_info.get('uuid')
+    player_ipv6 = player_info.get('ipv6')
 
     info_list = []
     if player_ip:
@@ -562,9 +580,19 @@ def add_ban_player(src, player: str):
             'onlinemode': config.get('onlinemode', False)
         }
 
+        for key, value in data.items():
+            if value is None:
+                data[key] = None
+
         src.reply(f'§e正在提交封禁审核...')
 
+        src.get_server().logger.info(f'正在提交封禁审核到 {url}')
+        src.get_server().logger.info(f'请求数据: {data}')
+
         response = requests.post(url, headers=headers, json=data, timeout=10)
+
+        src.get_server().logger.info(f'API响应状态码: {response.status_code}')
+        src.get_server().logger.info(f'API响应内容: {response.text}')
 
         if response.status_code == 200:
             result = response.json()
@@ -579,11 +607,69 @@ def add_ban_player(src, player: str):
             src.reply('§c无上传权限,请到官网获取')
         else:
             src.reply(f'§c提交失败 HTTP {response.status_code}')
+            try:
+                error_data = response.json()
+                src.reply(f'§7错误信息: {error_data.get("error", "未知错误")}')
+            except:
+                src.reply(f'§7响应内容: {response.text[:200]}')
+    except requests.exceptions.Timeout:
+        src.reply('§c请求超时，请检查网络连接')
+    except requests.exceptions.ConnectionError:
+        src.reply('§c无法连接到服务器，请检查API地址')
     except Exception as e:
-        src.reply(f'§c提交失败 {e}')
+        src.reply(f'§c提交失败: {e}')
+        src.get_server().logger.error(f'提交封禁审核失败: {e}')
+        import traceback
+        traceback.print_exc()
 
 
 @new_thread('NDPR')
+def save_player_info(player: str, ip: Optional[str], uuid: Optional[str], ipv6: Optional[str]):
+    global player_info_path
+
+    try:
+        player_info = {}
+        if os.path.exists(player_info_path):
+            with open(player_info_path, 'r', encoding='utf-8') as f:
+                player_info = json.load(f)
+
+        player_info[player] = {
+            'ip': ip,
+            'uuid': uuid,
+            'ipv6': ipv6,
+            'timestamp': __import__('time').time()
+        }
+
+        with open(player_info_path, 'w', encoding='utf-8') as f:
+            json.dump(player_info, f, indent=2, ensure_ascii=False)
+
+        print(f'已保存玩家 {player} 信息到 {player_info_path}')
+    except Exception as e:
+        print(f'保存玩家信息失败: {e}')
+
+
+def load_player_info(player: str) -> Dict[str, Optional[str]]:
+    global player_info_path
+
+    if not os.path.exists(player_info_path):
+        print(f'数据文件不存在: {player_info_path}')
+        return {}
+
+    try:
+        with open(player_info_path, 'r', encoding='utf-8') as f:
+            player_info = json.load(f)
+
+
+        if player in player_info:
+            return player_info[player]
+        else:
+            pass
+    except Exception as e:
+        print(f'加载玩家信息失败: {e}')
+
+    return {}
+
+
 def check_ban_status(src, player: str):
     global ban_db_path, config
 
@@ -626,6 +712,8 @@ def get_player_info_from_log(player: str) -> Dict[str, Optional[str]]:
         mcdr_root = os.path.dirname(plugin_dir)
         log_path = os.path.join(mcdr_root, log_path)
 
+    print(f'正在从日志文件获取玩家 {player} 的信息: {log_path}')
+
     if not os.path.exists(log_path):
         print(f'日志文件不存在: {log_path}')
         return {}
@@ -640,6 +728,10 @@ def get_player_info_from_log(player: str) -> Dict[str, Optional[str]]:
             'uuid': None,
             'ipv6': None
         }
+
+        five_minutes_ago = datetime.now() - timedelta(minutes=5)
+        matching_lines = []
+
         for line in reversed(lines):
             time_match = re.search(r'\[(\d{2}:\d{2}:\d{2})\]', line)
             if not time_match:
@@ -652,15 +744,31 @@ def get_player_info_from_log(player: str) -> Dict[str, Optional[str]]:
                                            month=datetime.now().month,
                                            day=datetime.now().day)
 
-                if log_time < two_minutes_ago:
+                if log_time < five_minutes_ago:
                     continue
             except ValueError:
                 continue
-            if player in line and 'UUID of player' in line:
+
+            if player in line:
+                matching_lines.append(line.strip())
+
+            if player in line and ('UUID' in line or 'uuid' in line):
                 uuid_match = re.search(r'UUID of player (\w+) is ([a-fA-F0-9-]{36})', line)
                 if uuid_match and uuid_match.group(1) == player:
                     result['uuid'] = uuid_match.group(2)
-            if player in line and ('logged in' in line or 'joined the game' in line):
+                    continue
+
+                uuid_match = re.search(rf'{re.escape(player)}[^[]*\[([a-fA-F0-9-]{{36}})\]', line)
+                if uuid_match:
+                    result['uuid'] = uuid_match.group(1)
+                    continue
+
+                uuid_match = re.search(r'([a-fA-F0-9-]{36})', line)
+                if uuid_match:
+                    result['uuid'] = uuid_match.group(1)
+                    continue
+
+            if player in line and ('joined' in line or 'logged' in line or 'logged in' in line or 'connected' in line):
                 ip_match = re.search(rf'{re.escape(player)}\[/([0-9.:]+):', line)
                 if ip_match:
                     ip = ip_match.group(1)
@@ -668,9 +776,22 @@ def get_player_info_from_log(player: str) -> Dict[str, Optional[str]]:
                         result['ipv6'] = ip
                     else:
                         result['ip'] = ip
+                    continue
+
+                ip_match = re.search(rf'{re.escape(player)}[^0-9]*([0-9]{{1,3}}\.[0-9]{{1,3}}\.[0-9]{{1,3}}\.[0-9]{{1,3}})', line)
+                if ip_match:
+                    result['ip'] = ip_match.group(1)
+                    continue
+
+        if not matching_lines:
+            print(f'警告: 在最近的日志中未找到包含玩家 {player} 的任何记录')
+
+        print(f'最终结果: IP={result["ip"]}, UUID={result["uuid"]}, IPv6={result["ipv6"]}')
         return result
     except Exception as e:
         print(f'读取日志时出错: {e}')
+        import traceback
+        traceback.print_exc()
         return {}
 
 
@@ -690,67 +811,118 @@ def get_player_ipv6(player: str) -> Optional[str]:
 
 
 def check_plugin_update(server: PluginServerInterface, src=None):
-    current_version = {version}
+    current_version = version
     api_url = 'https://api.github.com/repos/NDPReforged/NDPR-MCDR/releases/latest'
+
+    def send_message(msg: str):
+        if src is not None:
+            src.reply(msg)
+        clean_msg = msg.replace('§a', '').replace('§e', '').replace('§c', '').replace('§b', '').replace('§d', '').replace('§f', '').replace('§7', '').replace('§8', '')
+        server.logger.info(clean_msg)
 
     try:
         if src:
-            src.reply('§e正在检查插件更新...')
-        else:
-            server.logger.info('正在检查插件更新...')
+            send_message("§a[NDPR] 正在检查更新...")
+        server.logger.info("正在检查更新...")
 
-        response = requests.get(api_url, timeout=10)
-        if response.status_code != 200:
-            if src:
-                src.reply('§c检查更新失败: 无法连接到GitHub')
-            else:
-                server.logger.warning('检查更新失败: 无法连接到GitHub')
-            return
-
+        response = requests.get(api_url, timeout=30)
+        response.raise_for_status()
         data = response.json()
-        latest_version = data.get('tag_name', '').lstrip('v')
-        release_url = data.get('html_url', '')
-        release_notes = data.get('body', '无更新说明')
 
-        if src:
-            if latest_version > current_version:
-                src.reply(f'§a发现新版本: §e{latest_version} §7(当前: {current_version})')
-                src.reply(f'§7下载地址: §f{release_url}')
-                install_button = RText("§b[§d点击复制安装命令§b]")
-                install_button.set_hover_text(RText("§7点击复制安装命令到聊天栏"))
-                install_button.set_click_event(RAction.suggest_command, f'!!MCDR plg install ndpr=={latest_version}')
-                src.reply(install_button)
-                if release_notes:
-                    src.reply('§7更新内容:')
-                    notes_preview = release_notes[:200] + '...' if len(release_notes) > 200 else release_notes
-                    for line in notes_preview.split('\n')[:5]:
-                        if line.strip():
-                            src.reply(f'§8  {line}')
-            else:
-                src.reply(f'§a当前已是最新版本 §e{current_version}')
+        latest_version = data['tag_name'].lstrip('v')
+
+        try:
+            current_parts = [int(x) for x in current_version.replace('v', '').split('.')]
+            latest_parts = [int(x) for x in latest_version.split('.')]
+            has_update = False
+
+            max_len = max(len(current_parts), len(latest_parts))
+            current_parts += [0] * (max_len - len(current_parts))
+            latest_parts += [0] * (max_len - len(latest_parts))
+
+            for i in range(max_len):
+                if latest_parts[i] > current_parts[i]:
+                    has_update = True
+                    break
+                elif latest_parts[i] < current_parts[i]:
+                    break
+        except Exception:
+            has_update = latest_version > current_version
+
+        if has_update:
+            release_url = data.get('html_url', '')
+            release_notes = data.get('body', '无更新说明')
+
+            messages = [
+                "§a[NDPR] 发现新版本!",
+                f"§a当前版本: v{current_version}",
+                f"§a最新版本: v{latest_version}",
+            ]
+
+            if release_notes:
+                messages.append(f"§a更新内容: {release_notes[:100]}..." if len(release_notes) > 100 else f"§a更新内容: {release_notes}")
+
+            messages.append(f"§a下载地址: {release_url}")
+            messages.append(
+                RText("§b[§d点击复制安装命令§b]")
+                .set_click_event(RAction.suggest_command, f'!!MCDR plg install ndpr=={latest_version}')
+                .set_hover_text("§b点击复制安装命令到聊天栏")
+            )
+
+            if src:
+                for msg in messages:
+                    src.reply(msg)
+            server.logger.info(f"发现新版本NDP: v{latest_version} (当前版本: v{current_version})")
         else:
-            if latest_version > current_version:
-                server.logger.warning(f'发现新版本: {latest_version} (当前: {current_version})')
-                server.logger.info(f'下载地址: {release_url}')
-            else:
-                server.logger.info(f'当前已是最新版本 {current_version}')
+            if src:
+                src.reply(f"§a[NDPR] 当前已是最新版本 (v{current_version})")
+            server.logger.info(f"当前已是最新版本 (v{current_version})")
 
     except Exception as e:
-        error_msg = f'检查更新失败: {e}'
         if src:
-            src.reply(f'§c{error_msg}')
+            src.reply(f"§c[NDPR] 检查更新失败: {str(e)}")
+        server.logger.error(f"检查更新失败: {str(e)}")
+
+def report_kick(server: PluginServerInterface):
+    global config
+
+    try:
+        url = f"{config['api_url']}/stats/a"
+        headers = {
+            'Content-Type': 'application/json'
+        }
+        data = {
+            'token': config['token']
+        }
+
+        response = requests.post(url, headers=headers, json=data, timeout=5)
+
+        if response.status_code == 200:
+            result = response.json()
+            total = result.get('total', 0)
         else:
-            server.logger.warning(error_msg)
+            server.logger.warning(f'拦截统计上报失败: HTTP {response.status_code}')
+    except Exception as e:
+        server.logger.warning(f'拦截统计上报异常: {e}')
+
 
 def on_player_joined(server: PluginServerInterface, player: str, info):
-    global ban_db_path, config
-    if not os.path.exists(ban_db_path):
-        return
+    global ban_db_path, config, player_info_path
+    import time
+    time.sleep(2)
+
     player_uuid = get_player_uuid(player)
     player_ip = get_player_ip(player)
     player_ipv6 = get_player_ipv6(player)
 
     server.logger.info(f'玩家 {player} - IP: {player_ip}, UUID: {player_uuid}, IPv6: {player_ipv6}')
+
+    save_player_info(player, player_ip, player_uuid, player_ipv6)
+
+
+    if not os.path.exists(ban_db_path):
+        server.logger.info('封禁数据库不存在,跳过封禁检查')
+        return
 
     is_online = config.get('onlinemode', False)
     table_name = 'online' if is_online else 'offline'
@@ -769,6 +941,7 @@ def on_player_joined(server: PluginServerInterface, player: str, info):
                     conn.close()
                     server.logger.info(f'检测到被封禁玩家 {player} (UUID: {player_uuid} 匹配) 在 {table} 表, 正在踢出')
                     server.execute(f'kick {player} §c您已被NDPR封禁系统封禁')
+                    report_kick(server)
                     return
 
             cursor.execute(f"SELECT 1 FROM {table} WHERE player = ?", (player,))
@@ -777,6 +950,7 @@ def on_player_joined(server: PluginServerInterface, player: str, info):
                 conn.close()
                 server.logger.info(f'检测到被封禁玩家 {player} (玩家名匹配) 在 {table} 表, 正在踢出')
                 server.execute(f'kick {player} §c您已被NDPR封禁系统封禁')
+                report_kick(server)
                 return
 
             if player_ip:
@@ -786,6 +960,7 @@ def on_player_joined(server: PluginServerInterface, player: str, info):
                     conn.close()
                     server.logger.info(f'检测到被封禁玩家 {player} (IP: {player_ip} 匹配) 在 {table} 表, 正在踢出')
                     server.execute(f'kick {player} §c您已被NDPR封禁系统封禁')
+                    report_kick(server)
                     return
 
             if player_ipv6:
@@ -795,6 +970,7 @@ def on_player_joined(server: PluginServerInterface, player: str, info):
                     conn.close()
                     server.logger.info(f'检测到被封禁玩家 {player} (IPv6: {player_ipv6} 匹配) 在 {table} 表, 正在踢出')
                     server.execute(f'kick {player} §c您已被NDPR封禁系统封禁')
+                    report_kick(server)
                     return
 
         conn.close()
@@ -821,5 +997,3 @@ def run_download_loop(server: PluginServerInterface, interval: int):
             download_ban_database(server)
         except Exception:
             pass
-
-
