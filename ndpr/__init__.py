@@ -1,5 +1,6 @@
 import os
 import toml
+import json
 import requests
 import sqlite3
 import threading
@@ -14,7 +15,7 @@ data_dir = None
 ban_db_path = None
 player_info_path = None
 download_task = None
-version = "1.1"
+version = "1.2"
 
 
 def on_load(server: PluginServerInterface, prev_module):
