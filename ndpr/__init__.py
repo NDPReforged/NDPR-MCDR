@@ -15,7 +15,7 @@ data_dir = None
 ban_db_path = None
 player_info_path = None
 download_task = None
-version = "1.2"
+version = "1.4"
 
 
 def on_load(server: PluginServerInterface, prev_module):
@@ -374,7 +374,8 @@ def download_ban_database(server: PluginServerInterface, src=None):
 
         table_name = 'online' if is_online else 'offline'
         success_msg = f'§a封禁数据库下载成功！'
-        server.logger.info(f'数据库已更新，共 {count} 条记录')
+        detail_msg = f'§7数据库已更新，共 {count} 条记录'
+        server.logger.info(detail_msg)
 
         if src:
             src.reply(success_msg)
@@ -415,9 +416,9 @@ def register_commands(server: PluginServerInterface):
     builder.command('!!NDPR d', download_callback)
     builder.command('!!NDPR download', download_callback)
 
-    # !!ndpr / !!NDPR ban <player>
-    builder.command('!!ndpr ban <player>', ban_callback)
-    builder.command('!!NDPR ban <player>', ban_callback)
+    # !!ndpr / !!NDPR ban <player> <reason>
+    builder.command('!!ndpr ban <player> <reason>', ban_callback)
+    builder.command('!!NDPR ban <player> <reason>', ban_callback)
 
     # !!ndpr / !!NDPR check 
     builder.command('!!ndpr check <target>', check_callback)
@@ -434,6 +435,7 @@ def register_commands(server: PluginServerInterface):
     builder.command('!!NDPR checkupdate', check_update_callback)
 
     builder.arg('player', QuotableText)
+    builder.arg('reason', GreedyText)
     builder.arg('target', QuotableText)
     builder.register(server)
 
@@ -447,7 +449,7 @@ def help_callback(src, ctx):
     src.reply('§b命令列表:')
     src.reply('§f!!ndpr help §7- 显示此帮助信息')
     src.reply('§f!!ndpr d / download §7- 下载封禁数据库')
-    src.reply('§f!!ndpr ban <ID> §7- 提交封禁审核(如有上传权限)')
+    src.reply('§f!!ndpr ban <ID> <原因> §7- 提交封禁审核(如有上传权限)')
     src.reply('§f!!ndpr check <ID/IP/UUID> §7- 检查封禁状态')
     src.reply('§f!!ndpr reload §7- 重载插件')
     src.reply('§f!!ndpr cu / checkupdate §7- 检查插件更新')
@@ -464,8 +466,9 @@ def download_callback(src, ctx):
 
 def ban_callback(src, ctx):
     player = ctx.get('player')
+    reason = ctx.get('reason')
     if player:
-        add_ban_player(src, player)
+        add_ban_player(src, player, reason)
 
 def check_callback(src, ctx):
     target = ctx.get('target')
@@ -536,11 +539,26 @@ def reload_plugin(src, server: PluginServerInterface):
 
 
 @new_thread('NDPR')
-def add_ban_player(src, player: str):
+def add_ban_player(src, player: str, reason: str = None):
     global config
 
-    if not config.get('token'):
+    if config is None:
+        src.reply('§c配置未加载')
+        return
+
+    token = config.get('token')
+    if not token:
         src.reply('§cToken未配置')
+        return
+
+    if not reason:
+        src.reply('§c请提供封禁原因')
+        src.reply('§7用法: !!ndpr ban <玩家ID> <封禁原因>')
+        return
+
+    api_url = config.get('api_url')
+    if not api_url:
+        src.reply('§cAPI地址未配置')
         return
 
     src.reply(f'§e正在获取玩家 {player} 的信息...')
@@ -567,18 +585,21 @@ def add_ban_player(src, player: str):
     if info_list:
         src.reply(f'§e已获取信息: {", ".join(info_list)}')
 
+    src.reply(f'§e封禁原因: §f{reason}')
+
     try:
-        url = f"{config['api_url']}/check/uploader"
+        url = f"{api_url}/check/uploader"
         headers = {
             'Content-Type': 'application/json'
         }
         data = {
-            'token': config['token'],
+            'token': token,
             'player_id': player,
             'ip': player_ip,
             'ipv6': player_ipv6,
             'uuid': player_uuid,
-            'onlinemode': config.get('onlinemode', False)
+            'onlinemode': config.get('onlinemode', False),
+            'reason': reason
         }
 
         for key, value in data.items():
