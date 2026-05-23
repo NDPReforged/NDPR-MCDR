@@ -8,7 +8,7 @@
 
 **NDPR 封禁系统 MCDR 插件**
 
-[官网](https://ndpreforged.com) • [文档](#文档) • [QQ群](https://qm.qq.com/cgi-bin/qm/qr?k=232760327)
+[官网](https://ndpreforged.com) • [文档](https://ndpreforged.com/wiki.php) • [QQ群](https://qm.qq.com/cgi-bin/qm/qr?k=232760327)
 
 </div>
 
